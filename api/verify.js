@@ -1,7 +1,6 @@
 const Anthropic = require("@anthropic-ai/sdk");
 
-// Max file size: 20MB (Anthropic video limit)
-const MAX_BYTES = 20 * 1024 * 1024;
+const MAX_BYTES = 200 * 1024 * 1024; // 200MB
 
 const MATTRESS_BRANDS = [
   "Bear Elite Hybrid",
@@ -13,7 +12,6 @@ const MATTRESS_BRANDS = [
 const PILLOW_BRANDS = ["Helix ComfortAdjust", "Nolah ArcticCore"];
 
 module.exports = async function handler(req, res) {
-  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -21,12 +19,10 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // Read raw body as buffer
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const body = Buffer.concat(chunks);
 
-    // Parse multipart form data manually
     const contentType = req.headers["content-type"] || "";
     const boundaryMatch = contentType.match(/boundary=(.+)$/);
     if (!boundaryMatch) return res.status(400).json({ error: "No boundary in multipart form" });
@@ -45,7 +41,9 @@ module.exports = async function handler(req, res) {
     const videoMime = videoPart.contentType || "video/mp4";
 
     if (videoBuffer.length > MAX_BYTES) {
-      return res.status(413).json({ error: `Video too large. Max size is 20MB. Your file is ${Math.round(videoBuffer.length / 1024 / 1024)}MB. Please trim the recording.` });
+      return res.status(413).json({ 
+        error: `Video is ${Math.round(videoBuffer.length / 1024 / 1024)}MB which exceeds the 95MB limit. Please trim your recording to under 2 minutes.` 
+      });
     }
 
     const videoBase64 = videoBuffer.toString("base64");
@@ -93,7 +91,7 @@ Return ONLY valid JSON, no markdown, no explanation:
   "notes": "any observations about the recording"
 }
 
-If you cannot identify any confirmed submissions, return { "submissions": [], "total_count": 0, "notes": "reason" }`,
+If you cannot identify any confirmed submissions, return { "submissions": [], "total_count": 0, "notes": "reason" }`
             },
             {
               type: "image",
@@ -116,11 +114,9 @@ If you cannot identify any confirmed submissions, return { "submissions": [], "t
       return res.status(500).json({ error: "Claude returned unparseable response", raw: rawText });
     }
 
-    // Build entries for leaderboard storage
     const today = new Date().toISOString().slice(0, 10);
     const now = Date.now();
 
-    // Group submissions by product+category
     const grouped = {};
     (parsed.submissions || []).forEach((s) => {
       const key = `${s.product}||${s.category}`;
@@ -157,22 +153,17 @@ If you cannot identify any confirmed submissions, return { "submissions": [], "t
 function parseMultipart(buffer, boundary) {
   const parts = [];
   const boundaryBuf = Buffer.from(boundary);
-  const endBoundaryBuf = Buffer.from(boundary + "--");
 
   let start = 0;
   while (start < buffer.length) {
-    // Find next boundary
     const bIdx = indexOf(buffer, boundaryBuf, start);
     if (bIdx === -1) break;
 
-    // Check if end boundary
     const afterBoundary = bIdx + boundaryBuf.length;
     if (buffer.slice(afterBoundary, afterBoundary + 2).toString() === "--") break;
 
-    // Skip past boundary + CRLF
     let pos = afterBoundary + 2;
 
-    // Parse headers
     const headers = {};
     while (pos < buffer.length) {
       const lineEnd = indexOf(buffer, Buffer.from("\r\n"), pos);
@@ -186,12 +177,10 @@ function parseMultipart(buffer, boundary) {
       pos = lineEnd + 2;
     }
 
-    // Find end of this part (next boundary)
     const nextBIdx = indexOf(buffer, boundaryBuf, pos);
-    const dataEnd = nextBIdx === -1 ? buffer.length : nextBIdx - 2; // -2 for CRLF before boundary
+    const dataEnd = nextBIdx === -1 ? buffer.length : nextBIdx - 2;
     const data = buffer.slice(pos, dataEnd);
 
-    // Extract name and filename from content-disposition
     const disposition = headers["content-disposition"] || "";
     const nameMatch = disposition.match(/name="([^"]+)"/);
     const filenameMatch = disposition.match(/filename="([^"]+)"/);
