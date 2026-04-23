@@ -445,7 +445,7 @@ async function doSubmit() {
   const name = document.getElementById('nameInput').value.trim();
   if (!name) return showToast('Enter your name first');
   if (!selectedFile) return showToast('Upload a video recording first');
-  if (selectedFile.size > 20 * 1024 * 1024) return showToast('Video is too large — max 20MB. Try trimming it.');
+  if (selectedFile.size > 200 * 1024 * 1024) return showToast('Video is too large — max 20MB. Try trimming it.');
 
   document.getElementById('submitBtn').disabled = true;
   document.getElementById('progressBox').classList.add('show');
