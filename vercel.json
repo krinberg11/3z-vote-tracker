@@ -1,13 +1,11 @@
 {
-  "name": "3z-vote-tracker",
-  "version": "1.0.0",
-  "description": "3Z Brands Newsweek Vote Tracker 2026",
-  "private": true,
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
-    "@vercel/kv": "^3.0.0"
-  },
-  "engines": {
-    "node": ">=18"
-  }
+  "version": 2,
+  "builds": [
+    { "src": "api/*.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "/public/$1" }
+  ]
 }
